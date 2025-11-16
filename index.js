@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = 3000;
 
@@ -26,14 +26,39 @@ async function run() {
     await client.connect();
     const db = client.db("krishi-db");
     const productCollection = db.collection("products");
+    const usersCollection = db.collection("users");
+
+    // users apis
+    app.post("/users", async (req, res) => {
+      const newUser = req.body;
+      const email = req.body.email;
+      const query = { email: email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        res.send({
+          message: "user already exits. Do not need to insert again",
+        });
+      } else {
+        const result = await usersCollection.insertOne(newUser);
+        res.send(result);
+      }
+    });
+
     app.get("/products", async (req, res) => {
-      const result = await productCollection.find().toArray();
-      console.log(result);
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query["owner.ownerEmail"] = email;
+      }
+
+      const result = await productCollection.find(query).toArray();
       res.send(result);
     });
 
-    app.get("/products/:0", async (req, res) => {
-      const result = await productCollection.find().toArray();
+    app.get("/products/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await productCollection.findOne(query);
       console.log(result);
       res.send(result);
     });
