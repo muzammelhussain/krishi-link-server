@@ -63,6 +63,14 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/products", async (req, res) => {
+      const cropData = req.body;
+
+      const result = await productCollection.insertOne(cropData);
+
+      res.send(result);
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
