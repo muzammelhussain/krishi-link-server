@@ -44,6 +44,39 @@ async function run() {
       }
     });
 
+    //Get posts by user email
+    app.get("/products/byOwner/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { "owner.ownerEmail": email };
+
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // Update product
+    app.put("/products/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+
+      const result = await productCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updatedData }
+      );
+
+      res.send(result);
+    });
+
+    // Delete product
+    app.delete("/products/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const result = await productCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send(result);
+    });
+
     app.get("/products", async (req, res) => {
       const email = req.query.email;
       const query = {};
@@ -62,6 +95,8 @@ async function run() {
       console.log(result);
       res.send(result);
     });
+
+    //add crops to db
 
     app.post("/products", async (req, res) => {
       const cropData = req.body;
