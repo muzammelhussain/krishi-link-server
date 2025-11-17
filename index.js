@@ -44,6 +44,27 @@ async function run() {
       }
     });
 
+    // GET user profile
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = await usersCollection.findOne({ email });
+      res.send(user);
+    });
+
+    // UPDATE user profile
+    app.put("/profile/:email", async (req, res) => {
+      const email = req.params.email;
+      const updatedInfo = req.body;
+
+      const result = await usersCollection.findOneAndUpdate(
+        { email },
+        { $set: updatedInfo },
+        { returnDocument: "after" }
+      );
+
+      res.send(result.value);
+    });
+
     //Get posts by user email
     app.get("/products/byOwner/:email", async (req, res) => {
       const email = req.params.email;
