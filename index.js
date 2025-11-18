@@ -115,6 +115,27 @@ async function run() {
       res.send(result);
     });
 
+    // GET All Crops with search support
+    app.get("/products", async (req, res) => {
+      try {
+        const search = req.query.search || "";
+
+        const query = {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { type: { $regex: search, $options: "i" } },
+            { location: { $regex: search, $options: "i" } },
+          ],
+        };
+
+        const crops = await productCollection.find(query).toArray();
+        res.send(crops);
+      } catch (error) {
+        console.error("Error fetching crops:", error);
+        res.status(500).json({ error: "Server error" });
+      }
+    });
+
     app.get("/products", async (req, res) => {
       const email = req.query.email;
       const query = {};
