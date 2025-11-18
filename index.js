@@ -46,23 +46,40 @@ async function run() {
 
     // GET user profile
     app.get("/users/:email", async (req, res) => {
-      const email = req.params.email;
-      const user = await usersCollection.findOne({ email });
-      res.send(user);
+      try {
+        const email = req.params.email;
+        const user = await usersCollection.findOne({ email });
+
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+
+        res.json(user);
+      } catch (error) {
+        res.status(500).json({ error: "Server error" });
+      }
     });
 
     // UPDATE user profile
-    app.put("/profile/:email", async (req, res) => {
-      const email = req.params.email;
-      const updatedInfo = req.body;
+    app.put("/users/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const updatedInfo = req.body;
 
-      const result = await usersCollection.findOneAndUpdate(
-        { email },
-        { $set: updatedInfo },
-        { returnDocument: "after" }
-      );
+        const result = await usersCollection.findOneAndUpdate(
+          { email },
+          { $set: updatedInfo },
+          { returnDocument: "after" }
+        );
 
-      res.send(result.value);
+        if (!result) {
+          return res.status(404).json({ error: "User not found" });
+        }
+
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ error: "Server error" });
+      }
     });
 
     //Get posts by user email
