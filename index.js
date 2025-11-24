@@ -208,6 +208,38 @@ async function run() {
       }
     });
 
+    app.get("/my-interests/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        // Find crops where this user has interests
+        const crops = await productCollection
+          .find({ "interests.userEmail": email })
+          .toArray();
+
+        // Extract only user's interest objects + crop info
+        const formatted = crops.map((crop) => {
+          const userInterest = crop.interests.find(
+            (i) => i.userEmail === email
+          );
+
+          return {
+            cropId: crop._id,
+            cropName: crop.name,
+            ownerName: crop.owner.ownerName,
+            ownerEmail: crop.owner.ownerEmail,
+            quantity: userInterest.quantity,
+            message: userInterest.message,
+            status: userInterest.status,
+          };
+        });
+
+        res.send(formatted);
+      } catch (error) {
+        res.status(500).json({ error: "Server error" });
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
@@ -225,5 +257,5 @@ app.get("/muhin", (req, res) => {
   res.send("welcome to my server");
 });
 app.listen(port, () => {
-  console.log(`Example app listening on portttt ${port}`);
+  console.log(`Example app listening on port ${port}`);
 });
