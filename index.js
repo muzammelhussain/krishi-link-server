@@ -165,6 +165,49 @@ async function run() {
       res.send(result);
     });
 
+    // ADD INTEREST TO A CROP
+    app.post("/interests", async (req, res) => {
+      try {
+        const interest = req.body;
+        const cropId = interest.cropId;
+
+        // Check if user has already sent interest
+        const already = await cropsCollection.findOne({
+          _id: new ObjectId(cropId),
+          "interests.userEmail": interest.userEmail,
+        });
+
+        if (already) {
+          return res.status(400).json({
+            error: "You have already sent an interest for this crop",
+          });
+        }
+
+        // Create unique _id for interest
+        const interestId = new ObjectId();
+
+        const newInterest = {
+          _id: interestId, // ← generates i5544 style ID
+          cropId: cropId,
+          userEmail: interest.userEmail,
+          userName: interest.userName,
+          quantity: interest.quantity,
+          message: interest.message,
+          status: "pending", // ← default
+        };
+
+        // Push into interests array
+        const result = await cropsCollection.updateOne(
+          { _id: new ObjectId(cropId) },
+          { $push: { interests: newInterest } }
+        );
+
+        res.json({ inserted: result.modifiedCount > 0 });
+      } catch (err) {
+        res.status(500).json({ error: "Server error", details: err });
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
