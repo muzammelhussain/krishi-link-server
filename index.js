@@ -172,7 +172,7 @@ async function run() {
         const cropId = interest.cropId;
 
         // Check if user has already sent interest
-        const already = await cropsCollection.findOne({
+        const already = await productCollection.findOne({
           _id: new ObjectId(cropId),
           "interests.userEmail": interest.userEmail,
         });
@@ -197,7 +197,7 @@ async function run() {
         };
 
         // Push into interests array
-        const result = await cropsCollection.updateOne(
+        const result = await productCollection.updateOne(
           { _id: new ObjectId(cropId) },
           { $push: { interests: newInterest } }
         );
@@ -237,6 +237,30 @@ async function run() {
         res.send(formatted);
       } catch (error) {
         res.status(500).json({ error: "Server error" });
+      }
+    });
+
+    // PATCH update interest status
+    app.patch("/interests/status/:interestId", async (req, res) => {
+      const interestId = req.params.interestId;
+      const { status } = req.body;
+
+      try {
+        const result = await productCollection.updateOne(
+          { "interests._id": new ObjectId(interestId) }, // find the product that contains this interest
+          {
+            $set: {
+              "interests.$.status": status, // update only the matched interest
+            },
+          }
+        );
+
+        res.send({ modified: result.modifiedCount > 0 });
+      } catch (error) {
+        console.error(error);
+        res
+          .status(500)
+          .send({ error: true, message: "Failed to update status" });
       }
     });
 
