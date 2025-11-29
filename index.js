@@ -1,15 +1,41 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
+const admin = require("firebase-admin");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(cors());
-
 app.use(express.json());
 
-const uri =
-  "mongodb+srv://krishiLink-user:jaweCNaJC4osZmO7@keramot.mqb48yw.mongodb.net/?appName=Keramot";
+const serviceAccount = require("./krishi-link-firebase-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const verifyFireBaseToken = async (req, res, next) => {
+  if (!req.headers.authorization) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  const token = req.headers.authorization.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  // verify token
+  try {
+    const userInfo = await admin.auth().verifyIdToken(token);
+    req.token_email = userInfo.email;
+    console.log("after token validation", userInfo);
+    next();
+  } catch {
+    console.log("invalid token");
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+};
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@keramot.mqb48yw.mongodb.net/?appName=Keramot`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -91,6 +117,22 @@ async function run() {
       res.send(result);
     });
 
+    // Get latest 6 products
+    app.get("/products/latest", async (req, res) => {
+      try {
+        const result = await productCollection
+          .find()
+          .sort({ createdAt: -1 }) // newest first
+          .limit(6)
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+        res.status(500).send({ message: "Failed to fetch latest crops" });
+      }
+    });
+
     // Update product
     app.put("/products/:id", async (req, res) => {
       const id = req.params.id;
@@ -147,7 +189,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/products/:id", async (req, res) => {
+    app.get("/products/:id", verifyFireBaseToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await productCollection.findOne(query);
@@ -240,19 +282,48 @@ async function run() {
       }
     });
 
-    // PATCH update interest status
+    // PATCH update interest status + reduce crop quantity if accepted
     app.patch("/interests/status/:interestId", async (req, res) => {
       const interestId = req.params.interestId;
       const { status } = req.body;
 
       try {
+        // 1. Find the product containing this interest
+        const product = await productCollection.findOne({
+          "interests._id": new ObjectId(interestId),
+        });
+
+        if (!product) {
+          return res
+            .status(404)
+            .send({ error: true, message: "Product not found" });
+        }
+
+        // 2. Find the interest object
+        const interest = product.interests.find(
+          (i) => i._id.toString() === interestId
+        );
+
+        if (!interest) {
+          return res
+            .status(404)
+            .send({ error: true, message: "Interest not found" });
+        }
+
+        // 3. Base update (status only)
+        let updateQuery = {
+          $set: { "interests.$.status": status },
+        };
+
+        // 4. If ACCEPTED → reduce product quantity
+        if (status === "accepted") {
+          updateQuery.$inc = { quantity: -interest.quantity };
+        }
+
+        // 5. Update DB
         const result = await productCollection.updateOne(
-          { "interests._id": new ObjectId(interestId) }, // find the product that contains this interest
-          {
-            $set: {
-              "interests.$.status": status, // update only the matched interest
-            },
-          }
+          { "interests._id": new ObjectId(interestId) },
+          updateQuery
         );
 
         res.send({ modified: result.modifiedCount > 0 });
